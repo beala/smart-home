@@ -1,6 +1,10 @@
 blueprint:
   name: AQI notification for all window sensors
-  description: Warn if a window is open and the AQI is above some threshold.
+  description: >
+    Warn if a window is open and the AQI is above some threshold. This hard
+    codes the service `notify.all_phones` for sending the notification. See
+    here (https://www.home-assistant.io/integrations/group/#notify-groups)
+    for how to set up a notification group.
   domain: automation
   input:
     warn_threshold:

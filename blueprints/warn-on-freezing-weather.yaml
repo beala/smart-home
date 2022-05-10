@@ -1,0 +1,37 @@
+blueprint:
+  name: Warn on freezing weather
+  description: >
+    This sends a notification if there are freezing temps in the forecast.
+  domain: automation
+  input:
+    low_threshold:
+      name: Low threshold
+      description: Temperatures (F) at or below this level with trigger the notification.
+      selector:
+        number:
+          unit_of_measurement: F
+          min: 0
+          max: 150
+          mode: box
+
+variables:
+  low_threshold: !input "low_threshold"
+  temperature: >
+    {% for t in state_attr('weather.klmo_daynight', 'forecast') if t['temperature'] < low_threshold %}
+    {{t['datetime'][:10]}}: {{t['temperature']}}F.
+    {% endfor %}
+trigger:
+  - platform: time
+    at: "12:00:00"
+condition: []
+action:
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ temperature.strip() != '' }}"
+        sequence:
+          - service: notify.mobile_app_alex_s_iphone
+            data:
+              title: 🧊 Freezing Temperatures Forecast
+              message: "{{temperature}}"
+mode: single

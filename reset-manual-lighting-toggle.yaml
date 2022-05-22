@@ -1,0 +1,45 @@
+blueprint:
+  name: Reset manual lighting toggle
+  description: >
+    This resets the manual lighting toggle to "off" after a specified period of 
+    time. This is meant to be used in conjunction with the "Time of day lighting"
+    blueprint.
+  domain: automation
+  input:
+    reset_time:
+      name: Reset time
+      description: The amount of time to wait before resetting the toggle.
+      selector:
+        duration:
+    manual_toggle:
+      name: Manual toggle
+      description: Toggle for enabling manual mode. Then this is on,
+      default: None
+      selector:
+        entity:
+          domain: input_boolean
+
+variables: {}
+
+trigger:
+  - platform: state
+    entity_id: !input "manual_toggle"
+condition: []
+action:
+  - choose:
+      - conditions:
+          # The condition is placed here rather than in the global `condition`
+          # because we want this automation to run if the toggle is toggled off.
+          # When that happens, the previous run is canceled because `mode` is
+          # set to `restart`.
+          - condition: state
+            entity_id: !input "manual_toggle"
+            state: "on"
+        sequence:
+          - delay: !input "reset_time"
+          - service: input_boolean.turn_off
+            data: {}
+            target:
+              entity_id: !input "manual_toggle"
+    default: []
+mode: restart

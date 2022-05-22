@@ -1,0 +1,102 @@
+blueprint:
+  name: Set a light's brightness based on the time of day
+  description: >
+    When a light is turned on, this sets the brightness automatically. This blueprint supports a "ramp up" period, 
+    which is intended for use in the morning, and a "fade down" period, which is intended for use in the evening,
+    The lights are ramped up from the minimum brightness to the maximum during the ramp up period, and are faded
+    from max to min during the fade down period.
+  domain: automation
+  input:
+    start_fade:
+      name: Fade down start hour
+      description: Starting hour of the fade down period. Fading will being at the start of the hour. 24 hour time (0-23).
+      default: 16
+      selector: &hour_selector
+        number:
+          min: 0
+          max: 23
+          mode: box
+    end_fade:
+      name: Fade down end hour
+      description: Ending hour of the fade down period. Fading will be complete at the beginning of the hour. 24 hour time (0-23).
+      default: 20
+      selector: *hour_selector
+    start_ramp:
+      name: Ramp up start hour
+      description: Starting hour of the ramp up period. Ramp up will being at the start of the hour. 24 hour time (0-23).
+      default: 5
+      selector: *hour_selector
+    end_ramp:
+      name: Ramp up end hour
+      description: Ending hour of the ramp up period. Ramp up will be complete at the beginning of the hour. 24 hour time (0-23).
+      default: 8
+      selector: *hour_selector
+    max_brightness:
+      name: Maximum brightness (between 0 and 255)
+      default: 190
+      selector: &brightness_selector
+        number:
+          min: 0
+          max: 255
+          mode: box
+    min_brightness:
+      name: Minimum brightness (between 0 and 255)
+      default: 1
+      selector: *brightness_selector
+    light:
+      name: Light entity
+      description: The light entity this targets
+      selector:
+        entity:
+          domain: light
+    manual_toggle:
+      name: Manual toggle
+      description: Toggle for enabling manual mode. Then this is on,
+      default: None
+      selector:
+        entity:
+          domain: input_boolean
+
+variables:
+  start_fade: !input "start_fade"
+  end_fade: !input "end_fade"
+  start_ramp: !input "start_ramp"
+  end_ramp: !input "end_ramp"
+  min_brightness: !input "min_brightness"
+  max_brightness: !input "max_brightness"
+  manual_toggle: !input "manual_toggle"
+  light: !input "light"
+  now_hour: "{{ now().hour + (now().minute/60) }}"
+  brightness: >
+    {%- if start_ramp <= now_hour and now_hour < end_ramp -%}
+      {{ int((max_brightness - min_brightness) * ((now_hour - start_ramp) / (end_ramp - start_ramp)) + min_brightness) }}  
+    {%- elif end_ramp <= now_hour and now_hour < start_fade -%}
+      {{max_brightness}}  
+    {%- elif start_fade <= now_hour and now_hour < end_fade -%}
+      {{ int((max_brightness - min_brightness) * (1.0 - ((now_hour - start_fade) / (end_fade - start_fade)) ) + min_brightness) }}  
+    {%- else -%}
+      {{min_brightness}}
+    {%- endif %}
+
+trigger:
+  - platform: state
+    entity_id: !input "light"
+    to: "on"
+  - platform: time_pattern
+    hours: "*"
+    minutes: "/5"
+condition:
+  - "{{is_state(manual_toggle, 'off')}}"
+action:
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{is_state(light, 'on')}}"
+        sequence:
+          - service: light.turn_on
+            data:
+              brightness: "{{brightness}}"
+            target:
+              entity_id: !input "light"
+    default: []
+mode: single

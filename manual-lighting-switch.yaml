@@ -1,0 +1,64 @@
+blueprint:
+  name: Toggle automatic lighting mode on and off.
+  description: >
+    This connects the manual lighting mode toggle to a physical switch.
+  domain: automation
+  input:
+    aqara_mini_switch:
+      name: Select the Aqara Wireless Remote Switch (Single Rocker)
+      description: Aqara Wireless Remote Switch (Single Rocker)
+      selector:
+        device:
+          integration: zha
+          manufacturer: LUMI
+          entity:
+            domain: sensor
+            device_class: battery
+          multiple: false
+    manual_mode_toggle:
+      name: Manual Mode Toggle
+      description: The toggle that should be toggled.
+      selector:
+        entity:
+          domain: input_boolean
+    light:
+      name: Light
+      description: The light that the toggle corresponds to.
+      selector:
+        entity:
+          domain: light
+mode: restart
+max_exceeded: silent
+trigger:
+  - platform: event
+    event_type: zha_event
+    event_data:
+      device_id: !input "aqara_mini_switch"
+action:
+  - variables:
+      command: "{{ trigger.event.data.command }}"
+  - choose:
+      - conditions:
+          - "{{ command == 'single' }}"
+        sequence:
+          - service: input_boolean.toggle
+            data: {}
+            target:
+              entity_id: !input "manual_mode_toggle"
+          - if:
+              - condition: state
+                entity_id: !input "manual_mode_toggle"
+                state: "on"
+            then:
+              - repeat:
+                  count: 2
+                  sequence:
+                    - service: light.toggle
+                      data: {}
+                      target:
+                        entity_id: !input "light"
+                    - delay:
+                        hours: 0
+                        minutes: 0
+                        seconds: 1
+                        milliseconds: 0
